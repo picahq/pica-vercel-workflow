@@ -58,7 +58,7 @@ export async function GET(
       runId: runData.runId,
       status: runData.status,
       result: finalResult,
-      output: finalResult, // Also set output for compatibility
+      output: finalResult,
       error: runData.error || null,
       input: runData.input,
       startedAt: runData.startedAt,
