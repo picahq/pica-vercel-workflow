@@ -313,7 +313,7 @@ async function createAttioContact(
     const result = await attioCreatePerson({
       firstName,
       lastName,
-      email: leadData.email,
+      // Don't include email to avoid uniqueness conflicts in Attio
       description,
       company: leadData.company,
     });

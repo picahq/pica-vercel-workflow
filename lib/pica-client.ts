@@ -130,7 +130,7 @@ export async function attioSearchPeople(email: string) {
 export async function attioCreatePerson(data: {
   firstName: string;
   lastName: string;
-  email: string;
+  email?: string; // Optional now
   description?: string;
   company?: string;
 }) {
@@ -156,11 +156,14 @@ export async function attioCreatePerson(data: {
               full_name: `${data.firstName} ${data.lastName}`,
             },
           ],
-          email_addresses: [
-            {
-              email_address: data.email,
-            },
-          ],
+          // Only include email if provided
+          ...(data.email && {
+            email_addresses: [
+              {
+                email_address: data.email,
+              },
+            ],
+          }),
           ...(data.description && {
             description: [{ value: data.description }],
           }),
