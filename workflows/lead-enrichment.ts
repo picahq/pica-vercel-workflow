@@ -174,11 +174,11 @@ async function researchCompany(companyName: string, runId: string): Promise<Comp
     console.error(`❌ Error researching company:`, error);
     await reportStepResult(runId, "research", "Company Research", "failed", { error: "Failed to research company" });
     return {
-      funding: "Unknown",
+      funding: "",
       techStack: [],
       recentNews: [],
-      size: "Unknown",
-      industry: "Unknown",
+      size: "",
+      industry: "",
     };
   }
 }
@@ -275,7 +275,12 @@ async function createAttioContact(
     
     // STEP 3: No exact match found - create new contact
     console.log(`✅ No exact match - creating new contact`);
-    const description = `Lead from ${leadData.company}. ${companyData.funding ? `Funding: ${companyData.funding}.` : ""} ${companyData.techStack?.length ? `Tech: ${companyData.techStack.join(", ")}.` : ""}`;
+    // Build description with only available data
+    const descParts = [`Lead from ${leadData.company}`];
+    if (companyData.funding) descParts.push(`Funding: ${companyData.funding}`);
+    if (companyData.size) descParts.push(`Size: ${companyData.size}`);
+    if (companyData.techStack?.length) descParts.push(`Tech: ${companyData.techStack.join(", ")}`);
+    const description = descParts.join(". ") + ".";
 
     const result = await attioCreatePerson({
       firstName,
@@ -331,10 +336,10 @@ async function logToAirtable(
       Name: leadData.name,
       Email: leadData.email,
       Company: leadData.company,
-      Funding: companyData.funding || "Unknown",
-      "Tech Stack": companyData.techStack?.join(", ") || "Unknown",
-      "Company Size": companyData.size || "Unknown",
-      Industry: companyData.industry || "Unknown",
+      Funding: companyData.funding || "Not available",
+      "Tech Stack": companyData.techStack?.join(", ") || "Not available",
+      "Company Size": companyData.size || "Not available",
+      Industry: companyData.industry || "Technology",
       "Decision Makers": decisionMakers.map((dm) => dm.name).join(", "),
       "Enriched At": new Date().toISOString(),
       Status: "Enriched",
@@ -490,7 +495,7 @@ async function handleNotInterestedLead(leadData: LeadData) {
 function extractFunding(results: any): string {
   const text = results.results?.[0]?.text || "";
   const fundingMatch = text.match(/\$([\d.]+[MBK])/);
-  return fundingMatch ? fundingMatch[0] : "Unknown";
+  return fundingMatch ? fundingMatch[0] : "";
 }
 
 function extractTechStack(results: any): string[] {
@@ -521,7 +526,7 @@ function extractNews(results: any): string[] {
 function extractCompanySize(results: any): string {
   const text = results.results?.[0]?.text || "";
   const sizeMatch = text.match(/(\d+[\d,]*)\s*(employees|people)/i);
-  return sizeMatch ? `${sizeMatch[1]} employees` : "Unknown";
+  return sizeMatch ? `${sizeMatch[1]} employees` : "";
 }
 
 function extractIndustry(results: any): string {
