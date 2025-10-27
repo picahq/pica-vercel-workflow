@@ -119,23 +119,6 @@ export function LeadForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-              Email Address
-            </Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="sarah@company.com"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              disabled={loading}
-              className="h-12 text-base"
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="company" className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Company Name
             </Label>
@@ -145,6 +128,23 @@ export function LeadForm() {
               type="text"
               placeholder="Acme Corporation"
               value={formData.company}
+              onChange={handleChange}
+              required
+              disabled={loading}
+              className="h-12 text-base"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+              Send Research Report To
+            </Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="sarah@company.com"
+              value={formData.email}
               onChange={handleChange}
               required
               disabled={loading}
