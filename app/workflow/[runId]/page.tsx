@@ -103,7 +103,7 @@ export default function WorkflowPage({
               stepsMap[step.stepId] = step;
             });
             // MERGE (accumulate) - never lose data, even if poll returns empty
-            setStepResults(prev => {
+            setStepResults((prev: any) => {
               // If new data is empty, keep previous data
               if (Object.keys(stepsMap).length === 0) {
                 console.log("⚠️ Empty step data received - keeping previous data");
