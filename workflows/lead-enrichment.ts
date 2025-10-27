@@ -369,15 +369,36 @@ async function generatePersonalizedEmail(
 
   console.log(`✉️ Step 5: Generating personalized email...`);
 
-  const subject = `${leadData.name.split(" ")[0]}, interesting work at ${leadData.company}`;
+  const firstName = leadData.name.split(" ")[0];
+  const subject = `Quick question about ${leadData.company}`;
 
-  const body = `Hi ${leadData.name.split(" ")[0]},
+  // Build email body with natural fallbacks
+  let intro = `Hi ${firstName},\n\nI came across ${leadData.company}`;
+  
+  if (companyData.recentNews?.length) {
+    intro += ` and was impressed by your recent momentum`;
+  } else {
+    intro += ` and wanted to reach out`;
+  }
+  intro += `.`;
 
-I came across ${leadData.company} and was impressed by what you're building${companyData.recentNews?.length ? `, especially ${companyData.recentNews[0]}` : ""}.
+  // Add tech stack mention if available
+  let techMention = "";
+  if (companyData.techStack?.length >= 2) {
+    techMention = `\n\nI noticed you're working with ${companyData.techStack.slice(0, 2).join(" and ")}—that's a great stack.`;
+  } else if (companyData.techStack?.length === 1) {
+    techMention = `\n\nI see you're using ${companyData.techStack[0]} in your tech stack.`;
+  }
 
-${companyData.techStack?.length ? `I noticed you're using ${companyData.techStack.slice(0, 2).join(" and ")} - that's a solid tech stack.` : ""}
+  // Add funding mention if available
+  let fundingMention = "";
+  if (companyData.funding) {
+    fundingMention = ` Congrats on your recent ${companyData.funding} funding!`;
+  }
 
-${companyData.funding ? `Congrats on the ${companyData.funding}! ` : ""}I'd love to learn more about your growth plans and see if there's a way we could help.
+  const body = `${intro}${techMention}
+
+${fundingMention ? fundingMention + "\n\n" : ""}I'd love to learn more about what you're building and explore if there's a way we could work together.
 
 Would you be open to a quick 15-minute call next week?
 
