@@ -60,18 +60,23 @@ export default function WorkflowPage({
   ]);
 
   // Clear old step data ONLY when switching to a different workflow
-  const prevRunIdRef = React.useRef<string | null>(null);
-  
   React.useEffect(() => {
-    // Only clear if we're switching from one runId to a different one
-    if (prevRunIdRef.current && prevRunIdRef.current !== runId) {
-      console.log("🧹 Switching workflows - clearing old step data");
+    const lastRunId = sessionStorage.getItem('lastRunId');
+    
+    // If this is a different runId, clear old data
+    if (lastRunId && lastRunId !== runId) {
+      console.log(`🧹 New workflow detected: ${lastRunId} → ${runId} - clearing old step data`);
       setStepResults({});
       fetch(`/api/step-update?runId=unknown&clear=true`);
+    } else if (!lastRunId) {
+      console.log(`🆕 First workflow - clearing any stale data`);
+      setStepResults({});
+      fetch(`/api/step-update?runId=unknown&clear=true`);
+    } else {
+      console.log(`♻️ Same workflow (${runId}) - keeping data`);
     }
-    prevRunIdRef.current = runId;
     
-    // On initial load (refresh), keep existing data - don't clear!
+    sessionStorage.setItem('lastRunId', runId);
   }, [runId]);
 
   // Poll for real workflow data AND step results
