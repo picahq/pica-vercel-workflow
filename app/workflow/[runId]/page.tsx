@@ -102,8 +102,16 @@ export default function WorkflowPage({
             stepsData.steps.forEach((step: any) => {
               stepsMap[step.stepId] = step;
             });
-            // REPLACE (don't merge) - we cleared old data on mount
-            setStepResults(stepsMap);
+            // MERGE (accumulate) - never lose data, even if poll returns empty
+            setStepResults(prev => {
+              // If new data is empty, keep previous data
+              if (Object.keys(stepsMap).length === 0) {
+                console.log("⚠️ Empty step data received - keeping previous data");
+                return prev;
+              }
+              // Merge new data with existing (accumulate)
+              return {...prev, ...stepsMap};
+            });
           }
         }
       } catch (error) {
@@ -155,7 +163,7 @@ export default function WorkflowPage({
         id: "research",
         label: "Company Research",
         description: "Exa AI Search",
-        status: (stepResults.research || result.companyData) ? "completed" : "pending",
+        status: stepResults.research?.status || (result.companyData ? "completed" : (isCompleted ? "completed" : "pending")),
         data: stepResults.research?.result || result.companyData || null,
         logs: [],
       },
@@ -163,7 +171,7 @@ export default function WorkflowPage({
         id: "decision_makers",
         label: "Decision Makers",
         description: "LinkedIn Search",
-        status: (stepResults.decision_makers || result.decisionMakers) ? "completed" : "pending",
+        status: stepResults.decision_makers?.status || (result.decisionMakers ? "completed" : (isCompleted ? "completed" : "pending")),
         data: stepResults.decision_makers?.result || (result.decisionMakers ? { executives: result.decisionMakers } : null),
         logs: [],
       },
@@ -171,7 +179,7 @@ export default function WorkflowPage({
         id: "attio",
         label: "Attio CRM",
         description: "Create Contact",
-        status: (stepResults.attio || result.attioResult) ? "completed" : "pending",
+        status: stepResults.attio?.status || (result.attioResult ? "completed" : (isCompleted ? "completed" : "pending")),
         data: stepResults.attio?.result || result.attioResult?.data || result.attioResult || null,
         logs: [],
       },
@@ -179,7 +187,7 @@ export default function WorkflowPage({
         id: "airtable",
         label: "Airtable",
         description: "Log Analytics",
-        status: (stepResults.airtable || result.airtableResult) ? "completed" : "pending",
+        status: stepResults.airtable?.status || (result.airtableResult ? "completed" : (isCompleted ? "completed" : "pending")),
         data: stepResults.airtable?.result || result.airtableResult || null,
         logs: [],
       },
@@ -187,7 +195,7 @@ export default function WorkflowPage({
         id: "email_gen",
         label: "Generate Email",
         description: "AI Personalization",
-        status: (stepResults.email_gen || result.emailContent) ? "completed" : "pending",
+        status: stepResults.email_gen?.status || (result.emailContent ? "completed" : (isCompleted ? "completed" : "pending")),
         data: stepResults.email_gen?.result || result.emailContent || null,
         logs: [],
       },
@@ -195,7 +203,7 @@ export default function WorkflowPage({
         id: "gmail",
         label: "Send Email",
         description: "Gmail (Automatic)",
-        status: stepResults.gmail?.status || (result.gmailResult ? "completed" : "pending"),
+        status: stepResults.gmail?.status || (result.gmailResult ? "completed" : (isCompleted ? "completed" : "pending")),
         data: stepResults.gmail?.result || result.gmailResult || null,
         logs: [],
       },
@@ -203,7 +211,7 @@ export default function WorkflowPage({
         id: "notion",
         label: "Notion Report",
         description: "Intelligence",
-        status: stepResults.notion?.status || (result.notionResult ? (result.notionResult.error ? "failed" : "completed") : "pending"),
+        status: stepResults.notion?.status || (result.notionResult ? (result.notionResult.error ? "failed" : "completed") : (isCompleted ? "completed" : "pending")),
         data: stepResults.notion?.result || result.notionResult || null,
         logs: [],
       },
