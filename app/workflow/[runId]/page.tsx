@@ -59,25 +59,31 @@ export default function WorkflowPage({
     "airtable", "email_gen", "gmail", "notion"
   ]);
 
-  // Clear old step data ONLY when switching to a different workflow
+  // Clear old step data ONLY when runId changes (new workflow)
+  const isInitialMount = React.useRef(true);
+  
   React.useEffect(() => {
     const lastRunId = sessionStorage.getItem('lastRunId');
+    const isNewWorkflow = lastRunId !== runId;
     
-    // If this is a different runId, clear old data
-    if (lastRunId && lastRunId !== runId) {
-      console.log(`🧹 New workflow detected: ${lastRunId} → ${runId} - clearing old step data`);
+    if (isNewWorkflow || !lastRunId) {
+      console.log(`🧹 ${!lastRunId ? 'First' : 'New'} workflow (${runId}) - clearing old data`);
+      
+      // Clear local state immediately
       setStepResults({});
-      fetch(`/api/step-update?runId=unknown&clear=true`);
-    } else if (!lastRunId) {
-      console.log(`🆕 First workflow - clearing any stale data`);
-      setStepResults({});
-      fetch(`/api/step-update?runId=unknown&clear=true`);
+      
+      // Clear server data (async but that's okay, polling will only get fresh data after this)
+      fetch(`/api/step-update?runId=unknown&clear=true`).catch(err => 
+        console.log("⚠️ Clear failed (non-critical):", err)
+      );
     } else {
-      console.log(`♻️ Same workflow (${runId}) - keeping data`);
+      console.log(`♻️ Same workflow (${runId}) - keeping existing data`);
     }
     
+    // Save this runId as the last one visited
     sessionStorage.setItem('lastRunId', runId);
-  }, [runId]);
+    isInitialMount.current = false;
+  }, [runId]); // Only runs when runId changes
 
   // Poll for real workflow data AND step results
   React.useEffect(() => {
@@ -237,34 +243,39 @@ export default function WorkflowPage({
     return descriptions[stepId] || "";
   }
 
-  // STABLE nodes - draggable and positioned horizontally
-  const nodes = steps.map((step, index) => ({
-    id: step.id, // Stable ID from steps
-    type: "workflow",
-    position: { x: index * 480, y: 200 },
-    draggable: true, // Make nodes movable!
-    data: {
-      ...step,
-      onViewDetails: () => {
-        setSelectedNode(step);
-        setSheetOpen(true);
+  // STABLE nodes - memoized to prevent React Flow rendering issues
+  const nodes = React.useMemo(() => {
+    return steps.map((step, index) => ({
+      id: step.id,
+      type: "workflow",
+      position: { x: index * 480, y: 200 },
+      draggable: true,
+      selectable: true,
+      data: {
+        ...step,
+        onViewDetails: () => {
+          setSelectedNode(step);
+          setSheetOpen(true);
+        },
       },
-    },
-  }));
+    }));
+  }, [steps]); // Only recreate when steps actually change
 
-  // STABLE edges - animated when completed, dotted when pending
-  const edges = steps.slice(0, -1).map((step, index) => ({
-    id: `e${index}`,
-    source: step.id,
-    target: steps[index + 1].id,
-    type: "animated", // Always use animated type
-    animated: step.status === "completed", // Animate when complete
-    style: { 
-      stroke: step.status === "completed" ? "#10b981" : "#a3a3a3",
-      strokeWidth: 2,
-      strokeDasharray: step.status === "completed" ? "0" : "5,5", // Dotted when pending
-    },
-  }));
+  // STABLE edges - memoized to prevent React Flow rendering issues
+  const edges = React.useMemo(() => {
+    return steps.slice(0, -1).map((step, index) => ({
+      id: `e${index}`,
+      source: step.id,
+      target: steps[index + 1].id,
+      type: "animated",
+      animated: step.status === "completed",
+      style: { 
+        stroke: step.status === "completed" ? "#10b981" : "#a3a3a3",
+        strokeWidth: 2,
+        strokeDasharray: step.status === "completed" ? "0" : "5,5",
+      },
+    }));
+  }, [steps]); // Only recreate when steps actually change
 
   // MEMOIZE nodeTypes to prevent React Flow from unmounting/remounting!
   const nodeTypes = React.useMemo(() => ({
