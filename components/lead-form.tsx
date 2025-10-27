@@ -212,7 +212,7 @@ export function LeadForm() {
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs font-bold">
                 5
               </span>
-              <span>Generates email (waits for your approval before sending)</span>
+              <span>Generates email</span>
             </li>
             <li className="flex items-start gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs font-bold">

@@ -142,7 +142,11 @@ export default function WorkflowPage({
         label: "Start",
         description: "Lead Received",
         status: "completed" as const,
-        data: workflowData?.input?.[1] || null,
+        data: result.leadData || {
+          name: workflowData?.input?.[2],
+          email: workflowData?.input?.[3],
+          company: workflowData?.input?.[4]
+        },
         logs: [],
       },
       {
@@ -223,11 +227,12 @@ export default function WorkflowPage({
     return descriptions[stepId] || "";
   }
 
-  // STABLE nodes - steps array is now guaranteed to have exactly 9 items
+  // STABLE nodes - draggable and positioned horizontally
   const nodes = steps.map((step, index) => ({
     id: step.id, // Stable ID from steps
     type: "workflow",
     position: { x: index * 480, y: 200 },
+    draggable: true, // Make nodes movable!
     data: {
       ...step,
       onViewDetails: () => {
@@ -237,12 +242,18 @@ export default function WorkflowPage({
     },
   }));
 
-  // STABLE edges - connect all 9 nodes
+  // STABLE edges - animated when completed, dotted when pending
   const edges = steps.slice(0, -1).map((step, index) => ({
     id: `e${index}`,
     source: step.id,
     target: steps[index + 1].id,
-    type: step.status === "completed" ? "animated" : "temporary",
+    type: "animated", // Always use animated type
+    animated: step.status === "completed", // Animate when complete
+    style: { 
+      stroke: step.status === "completed" ? "#10b981" : "#a3a3a3",
+      strokeWidth: 2,
+      strokeDasharray: step.status === "completed" ? "0" : "5,5", // Dotted when pending
+    },
   }));
 
   // MEMOIZE nodeTypes to prevent React Flow from unmounting/remounting!
@@ -583,11 +594,6 @@ export default function WorkflowPage({
                         </div>
                       </div>
                     )}
-                    <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 p-3">
-                      <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                        💡 Check your terminal for detailed API request/response logs
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
