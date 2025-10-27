@@ -73,7 +73,7 @@ export default function WorkflowPage({
       setStepResults({});
       
       // Clear server data (async but that's okay, polling will only get fresh data after this)
-      fetch(`/api/step-update?runId=unknown&clear=true`).catch(err => 
+      fetch(`/api/step-update?runId=${runId}&clear=true`).catch(err => 
         console.log("⚠️ Clear failed (non-critical):", err)
       );
     } else {
@@ -97,28 +97,33 @@ export default function WorkflowPage({
           setLoading(false);
         }
 
-        // Fetch real-time step results (stored under "unknown" runId)
-        const stepsResponse = await fetch(`/api/step-update?runId=unknown`);
+        // Fetch step results using ACTUAL runId from URL (now that workflow uses workflowRunId)
+        console.log(`📡 Fetching step data for runId: ${runId}`);
+        const stepsResponse = await fetch(`/api/step-update?runId=${runId}`);
         
         if (stepsResponse.ok) {
           const stepsData = await stepsResponse.json();
+          console.log(`📊 Received ${stepsData.steps?.length || 0} steps from API`);
           
           if (stepsData.steps && stepsData.steps.length > 0) {
             const stepsMap: any = {};
             stepsData.steps.forEach((step: any) => {
               stepsMap[step.stepId] = step;
             });
+            
+            console.log(`📦 Processing ${Object.keys(stepsMap).length} steps:`, Object.keys(stepsMap));
+            
             // MERGE (accumulate) - never lose data, even if poll returns empty
             setStepResults((prev: any) => {
-              // If new data is empty, keep previous data
-              if (Object.keys(stepsMap).length === 0) {
-                console.log("⚠️ Empty step data received - keeping previous data");
-                return prev;
-              }
-              // Merge new data with existing (accumulate)
-              return {...prev, ...stepsMap};
+              const merged = {...prev, ...stepsMap};
+              console.log(`✅ Updated stepResults: ${Object.keys(prev).length} → ${Object.keys(merged).length} steps`);
+              return merged;
             });
+          } else {
+            console.log("⚠️ No steps in response");
           }
+        } else {
+          console.error("❌ Failed to fetch step data:", stepsResponse.status);
         }
       } catch (error) {
         console.error("❌ Error fetching data:", error);
@@ -169,63 +174,70 @@ export default function WorkflowPage({
         id: "research",
         label: "Company Research",
         description: "Exa AI Search",
-        status: stepResults.research?.status || (result.companyData ? "completed" : (isCompleted ? "completed" : "pending")),
-        data: stepResults.research?.result || result.companyData || null,
+        status: stepResults.research?.status || "pending",
+        data: stepResults.research?.result || null,
         logs: [],
       },
       {
         id: "decision_makers",
         label: "Decision Makers",
         description: "LinkedIn Search",
-        status: stepResults.decision_makers?.status || (result.decisionMakers ? "completed" : (isCompleted ? "completed" : "pending")),
-        data: stepResults.decision_makers?.result || (result.decisionMakers ? { executives: result.decisionMakers } : null),
+        status: stepResults.decision_makers?.status || "pending",
+        data: stepResults.decision_makers?.result || null,
         logs: [],
       },
       {
         id: "attio",
         label: "Attio CRM",
         description: "Create Contact",
-        status: stepResults.attio?.status || (result.attioResult ? "completed" : (isCompleted ? "completed" : "pending")),
-        data: stepResults.attio?.result || result.attioResult?.data || result.attioResult || null,
+        status: stepResults.attio?.status || "pending",
+        data: stepResults.attio?.result || null,
         logs: [],
       },
       {
         id: "airtable",
         label: "Airtable",
         description: "Log Analytics",
-        status: stepResults.airtable?.status || (result.airtableResult ? "completed" : (isCompleted ? "completed" : "pending")),
-        data: stepResults.airtable?.result || result.airtableResult || null,
+        status: stepResults.airtable?.status || "pending",
+        data: stepResults.airtable?.result || null,
         logs: [],
       },
       {
         id: "email_gen",
         label: "Generate Email",
         description: "AI Personalization",
-        status: stepResults.email_gen?.status || (result.emailContent ? "completed" : (isCompleted ? "completed" : "pending")),
-        data: stepResults.email_gen?.result || result.emailContent || null,
+        status: stepResults.email_gen?.status || "pending",
+        data: stepResults.email_gen?.result || null,
         logs: [],
       },
       {
         id: "gmail",
         label: "Send Email",
         description: "Gmail (Automatic)",
-        status: stepResults.gmail?.status || (result.gmailResult ? "completed" : (isCompleted ? "completed" : "pending")),
-        data: stepResults.gmail?.result || result.gmailResult || null,
+        status: stepResults.gmail?.status || "pending",
+        data: stepResults.gmail?.result || null,
         logs: [],
       },
       {
         id: "notion",
         label: "Notion Report",
         description: "Intelligence",
-        status: stepResults.notion?.status || (result.notionResult ? (result.notionResult.error ? "failed" : "completed") : (isCompleted ? "completed" : "pending")),
-        data: stepResults.notion?.result || result.notionResult || null,
+        status: stepResults.notion?.status || "pending",
+        data: stepResults.notion?.result || null,
         logs: [],
       },
     ];
     
     console.log("✅ Returning steps array with length:", stepsArray.length);
+    console.log("🔍 stepsArray structure:", stepsArray.map(s => ({ id: s.id, status: s.status, hasData: !!s.data })));
+    
+    // GUARANTEE: Always return exactly 8 steps
+    if (stepsArray.length !== 8) {
+      console.error("🚨 CRITICAL: Steps array is not 8! Length:", stepsArray.length);
+    }
+    
     return stepsArray;
-  }, [workflowData, stepResults]); // Only updates when data changes
+  }, [stepResults]); // ONLY depend on stepResults, not workflowData (prevents flickering)
 
   // Helper function to get step descriptions
   function getStepDescription(stepId: string): string {

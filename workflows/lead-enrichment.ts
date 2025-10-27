@@ -44,9 +44,9 @@ export async function enrichLeadWorkflow(leadData: LeadData) {
 
   console.log(`🚀 Starting lead enrichment for: ${leadData.name} at ${leadData.company}`);
   
-  // Get the REAL runId using getWorkflowMetadata()!
+  // Get the REAL runId using getWorkflowMetadata() - use correct property name!
   const workflowMeta = getWorkflowMetadata();
-  const runId = (workflowMeta as any).runId || "unknown";
+  const runId = (workflowMeta as any).workflowRunId || "unknown";
   
   console.log(`📊 Workflow runId from metadata: ${runId}`);
 
