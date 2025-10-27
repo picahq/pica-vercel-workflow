@@ -59,22 +59,20 @@ export default function WorkflowPage({
     "airtable", "email_gen", "gmail", "notion"
   ]);
 
-  // Clear old step data when new runId is loaded
+  // Clear old step data ONLY when switching to a different workflow
+  const prevRunIdRef = React.useRef<string | null>(null);
+  
   React.useEffect(() => {
-    console.log("🧹 New runId detected - clearing old step data");
-    setStepResults({}); // Clear old data immediately
+    // Only clear if we're switching from one runId to a different one
+    if (prevRunIdRef.current && prevRunIdRef.current !== runId) {
+      console.log("🧹 Switching workflows - clearing old step data");
+      setStepResults({});
+      fetch(`/api/step-update?runId=unknown&clear=true`);
+    }
+    prevRunIdRef.current = runId;
     
-    const clearOldData = async () => {
-      try {
-        await fetch(`/api/step-update?runId=unknown&clear=true`);
-        console.log("✅ Cleared old step data from server");
-      } catch (error) {
-        console.log("⚠️ Could not clear server data (non-critical)");
-      }
-    };
-    
-    clearOldData();
-  }, [runId]); // Runs when runId changes
+    // On initial load (refresh), keep existing data - don't clear!
+  }, [runId]);
 
   // Poll for real workflow data AND step results
   React.useEffect(() => {
@@ -134,8 +132,7 @@ export default function WorkflowPage({
     console.log("🔍 Result keys:", result && typeof result === 'object' ? Object.keys(result) : 'not an object');
     console.log("🔍 stepResults:", stepResults);
     
-    // ALWAYS return exactly 8 steps - ONLY use stepResults (real-time data)
-    // Don't use workflow result - it has serialization issues (reference indices)
+    // ALWAYS return exactly 8 steps - use stepResults if available, otherwise use workflow result
     const stepsArray = [
       {
         id: "start",
@@ -153,56 +150,56 @@ export default function WorkflowPage({
         id: "research",
         label: "Company Research",
         description: "Exa AI Search",
-        status: stepResults.research ? "completed" : (isCompleted ? "completed" : "pending"),
-        data: stepResults.research?.result || null,
+        status: (stepResults.research || result.companyData) ? "completed" : "pending",
+        data: stepResults.research?.result || result.companyData || null,
         logs: [],
       },
       {
         id: "decision_makers",
         label: "Decision Makers",
         description: "LinkedIn Search",
-        status: stepResults.decision_makers ? "completed" : (isCompleted ? "completed" : "pending"),
-        data: stepResults.decision_makers?.result || null,
+        status: (stepResults.decision_makers || result.decisionMakers) ? "completed" : "pending",
+        data: stepResults.decision_makers?.result || (result.decisionMakers ? { executives: result.decisionMakers } : null),
         logs: [],
       },
       {
         id: "attio",
         label: "Attio CRM",
         description: "Create Contact",
-        status: stepResults.attio ? "completed" : (isCompleted ? "completed" : "pending"),
-        data: stepResults.attio?.result || null,
+        status: (stepResults.attio || result.attioResult) ? "completed" : "pending",
+        data: stepResults.attio?.result || result.attioResult?.data || result.attioResult || null,
         logs: [],
       },
       {
         id: "airtable",
         label: "Airtable",
         description: "Log Analytics",
-        status: stepResults.airtable ? "completed" : (isCompleted ? "completed" : "pending"),
-        data: stepResults.airtable?.result || null,
+        status: (stepResults.airtable || result.airtableResult) ? "completed" : "pending",
+        data: stepResults.airtable?.result || result.airtableResult || null,
         logs: [],
       },
       {
         id: "email_gen",
         label: "Generate Email",
         description: "AI Personalization",
-        status: stepResults.email_gen ? "completed" : (isCompleted ? "completed" : "pending"),
-        data: stepResults.email_gen?.result || null,
+        status: (stepResults.email_gen || result.emailContent) ? "completed" : "pending",
+        data: stepResults.email_gen?.result || result.emailContent || null,
         logs: [],
       },
       {
         id: "gmail",
         label: "Send Email",
         description: "Gmail (Automatic)",
-        status: stepResults.gmail?.status || "pending",
-        data: stepResults.gmail?.result || null,
+        status: stepResults.gmail?.status || (result.gmailResult ? "completed" : "pending"),
+        data: stepResults.gmail?.result || result.gmailResult || null,
         logs: [],
       },
       {
         id: "notion",
         label: "Notion Report",
         description: "Intelligence",
-        status: stepResults.notion?.status || "pending",
-        data: stepResults.notion?.result || null,
+        status: stepResults.notion?.status || (result.notionResult ? (result.notionResult.error ? "failed" : "completed") : "pending"),
+        data: stepResults.notion?.result || result.notionResult || null,
         logs: [],
       },
     ];
@@ -306,14 +303,13 @@ export default function WorkflowPage({
               )}
             </NodeContent>
             {(data.status === "completed" || data.status === "failed" || data.data) && (
-              <NodeFooter>
+              <NodeFooter className="pt-3 border-t border-neutral-100 dark:border-neutral-800">
                 <Button
                   size="sm"
-                  variant="ghost"
-                  className="h-8 w-full text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-900"
                   onClick={data.onViewDetails}
+                  className="w-full h-9 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 font-medium flex items-center justify-center"
                 >
-                  <FileText className="mr-1.5 h-3.5 w-3.5" />
+                  <FileText className="mr-2 h-4 w-4" />
                   {data.status === "failed" ? "View Error" : "View Details"}
                 </Button>
               </NodeFooter>
@@ -359,7 +355,7 @@ export default function WorkflowPage({
                 Lead Enrichment Workflow
               </span>
               <Badge className="text-xs font-mono bg-neutral-100 text-neutral-600 hover:bg-neutral-100 dark:bg-neutral-900 dark:text-neutral-400 border-0">
-                {runId.slice(0, 12)}...
+                {runId}
               </Badge>
             </div>
           </div>
@@ -375,6 +371,9 @@ export default function WorkflowPage({
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           connectionLineComponent={Connection}
+          nodesDraggable={true}
+          nodesConnectable={false}
+          elementsSelectable={true}
           fitView
           minZoom={0.2}
           maxZoom={1.5}
@@ -384,12 +383,6 @@ export default function WorkflowPage({
 
           <Panel position="top-left">
             <div className="flex gap-2">
-              <Button 
-                size="sm" 
-                className="bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 shadow-md font-medium"
-              >
-                Export
-              </Button>
               <Button 
                 size="sm" 
                 variant="outline"
@@ -544,15 +537,29 @@ export default function WorkflowPage({
                 )}
                 
                 {/* Show message if no data */}
-                {(!selectedNode.data || Object.keys(selectedNode.data).length === 0) && selectedNode.status !== "pending" && (
-                  <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 p-4">
-                    <p className="text-sm text-amber-900 dark:text-amber-200">
-                      {selectedNode.status === "failed" 
-                        ? "This step failed. Check terminal logs for error details."
-                        : "This step is running. Data will appear when complete."}
+                {(!selectedNode.data || Object.keys(selectedNode.data).length === 0) && selectedNode.status === "failed" && (
+                  <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50 p-4">
+                    <p className="text-sm text-red-900 dark:text-red-200">
+                      This step failed. Check terminal logs for error details.
                     </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                  </div>
+                )}
+                
+                {(!selectedNode.data || Object.keys(selectedNode.data).length === 0) && selectedNode.status === "running" && (
+                  <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 p-4">
+                    <p className="text-sm text-blue-900 dark:text-blue-200">
+                      This step is running. Data will appear when complete.
+                    </p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
                       💡 Check your terminal for real-time Pica API responses
+                    </p>
+                  </div>
+                )}
+                
+                {(!selectedNode.data || Object.keys(selectedNode.data).length === 0) && selectedNode.status === "completed" && (
+                  <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950/50 p-4">
+                    <p className="text-sm text-neutral-700 dark:text-neutral-300">
+                      Step completed but detailed data is not available.
                     </p>
                   </div>
                 )}

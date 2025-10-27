@@ -384,9 +384,9 @@ async function generatePersonalizedEmail(
 
   // Add tech stack mention if available
   let techMention = "";
-  if (companyData.techStack?.length >= 2) {
+  if (companyData.techStack && companyData.techStack.length >= 2) {
     techMention = `\n\nI noticed you're working with ${companyData.techStack.slice(0, 2).join(" and ")}—that's a great stack.`;
-  } else if (companyData.techStack?.length === 1) {
+  } else if (companyData.techStack && companyData.techStack.length === 1) {
     techMention = `\n\nI see you're using ${companyData.techStack[0]} in your tech stack.`;
   }
 
