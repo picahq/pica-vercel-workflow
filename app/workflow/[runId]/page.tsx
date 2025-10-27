@@ -453,15 +453,6 @@ export default function WorkflowPage({
           side="right" 
           className="w-full sm:w-[680px] overflow-y-auto bg-white dark:bg-neutral-950 border-l border-neutral-200 dark:border-neutral-800 p-0"
         >
-          {/* Custom close button - visible! */}
-          <button
-            onClick={() => setSheetOpen(false)}
-            className="absolute right-6 top-6 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-neutral-100 dark:ring-offset-neutral-950 dark:focus:ring-neutral-300 dark:data-[state=open]:bg-neutral-800"
-          >
-            <X className="h-5 w-5 text-neutral-900 dark:text-neutral-100" />
-            <span className="sr-only">Close</span>
-          </button>
-
           <div className="p-8 space-y-8">
             <SheetHeader className="space-y-4">
               <div className="flex items-start gap-4">
