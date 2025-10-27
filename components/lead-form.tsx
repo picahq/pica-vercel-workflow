@@ -114,7 +114,7 @@ export function LeadForm() {
               onChange={handleChange}
               required
               disabled={loading}
-              className="h-11 text-base bg-neutral-50 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100"
+              className="h-12 text-base"
             />
           </div>
 
@@ -131,7 +131,7 @@ export function LeadForm() {
               onChange={handleChange}
               required
               disabled={loading}
-              className="h-11 text-base bg-neutral-50 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100"
+              className="h-12 text-base"
             />
           </div>
 
@@ -148,7 +148,7 @@ export function LeadForm() {
               onChange={handleChange}
               required
               disabled={loading}
-              className="h-11 text-base bg-neutral-50 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100"
+              className="h-12 text-base"
             />
           </div>
 
