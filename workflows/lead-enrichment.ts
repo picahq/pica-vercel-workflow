@@ -58,30 +58,37 @@ export async function enrichLeadWorkflow(leadData: LeadData) {
   const decisionMakers = await findDecisionMakers(leadData.company, runId);
   await sleep("2s"); // Pause for visualization
 
+  // Step 2.5: Find lead's actual work email (not the "send report to" email)
+  const workEmail = await findLeadWorkEmail(leadData, runId);
+  console.log(`📧 Work email for CRM: ${workEmail} (Payload email: ${leadData.email})`);
+  
+  // Create a new leadData object with the work email for CRM purposes
+  const crmLeadData = { ...leadData, email: workEmail };
+
   // Step 3: Create enriched contact in Attio CRM (REAL PICA API)
-  const attioResult = await createAttioContact(leadData, companyData, runId);
+  const attioResult = await createAttioContact(crmLeadData, companyData, runId);
   await sleep("2s"); // Pause for visualization
 
-  // Step 4: Log to Airtable for analytics (REAL PICA API)
-  const airtableResult = await logToAirtable(leadData, companyData, decisionMakers, runId);
+  // Step 4: Log to Airtable for analytics (REAL PICA API) - use work email
+  const airtableResult = await logToAirtable(crmLeadData, companyData, decisionMakers, runId);
   await sleep("2s"); // Pause for visualization
 
   // Step 5: Generate personalized email
-  const emailContent = await generatePersonalizedEmail(leadData, companyData, runId);
+  const emailContent = await generatePersonalizedEmail(leadData, companyData, decisionMakers, runId);
   await sleep("2s"); // Pause for visualization
 
-  // Step 6: Send email via Gmail (REAL PICA API - AUTOMATIC, NO APPROVAL)
-  console.log("📧 Sending email automatically...");
+  // Step 6: Send email via Gmail - to the PAYLOAD email (where user wants research sent)
+  console.log(`📧 Sending research report to payload email: ${leadData.email}`);
   const gmailResult = await sendInitialEmail(leadData.email, emailContent);
   console.log("✅ Gmail result:", gmailResult);
   await reportStepResult(runId, "gmail", "Send Email", "completed", gmailResult);
   await sleep("2s"); // Pause for visualization
 
-  // Step 7: Create Notion intelligence report (REAL PICA API) - with error handling
+  // Step 7: Create Notion intelligence report (REAL PICA API) - with work email
   let notionResult = null;
   let notionStatus = "completed";
   try {
-    notionResult = await createNotionReport(leadData, companyData, decisionMakers);
+    notionResult = await createNotionReport(crmLeadData, companyData, decisionMakers);
     console.log("✅ Notion report created:", notionResult);
   } catch (error: any) {
     console.log("⚠️ Notion failed:", error.message);
@@ -96,6 +103,8 @@ export async function enrichLeadWorkflow(leadData: LeadData) {
   return {
     success: true,
     leadData,
+    workEmail,            // Found work email
+    payloadEmail: leadData.email, // Where research was sent
     companyData,           // REAL Exa response
     decisionMakers,        // REAL Exa response
     attioResult,          // REAL Attio response
@@ -188,7 +197,55 @@ async function researchCompany(companyName: string, runId: string): Promise<Comp
 }
 
 /**
- * Step 2: Find decision makers using Exa
+ * Step 2: Find lead's actual work email using Exa
+ */
+async function findLeadWorkEmail(leadData: LeadData, runId: string): Promise<string> {
+  "use step";
+
+  console.log(`🔍 Finding work email for ${leadData.name} at ${leadData.company}...`);
+
+  try {
+    // Search for the lead's contact info
+    const emailSearchResults = await exaSearch(
+      `${leadData.name} ${leadData.company} email contact`,
+      {
+        numResults: 3,
+        type: "neural",
+        contents: {
+          text: { maxCharacters: 1000 },
+        },
+      }
+    );
+
+    // Extract email from results
+    const text = emailSearchResults.results?.map((r: any) => r.text).join(" ") || "";
+    const emailMatch = text.match(/[\w\.-]+@[\w\.-]+\.\w+/g);
+    
+    if (emailMatch && emailMatch.length > 0) {
+      // Find work email (not generic ones)
+      const workEmail = emailMatch.find((email: string) => 
+        !email.includes("noreply") && 
+        !email.includes("support") &&
+        !email.includes("info@") &&
+        !email.includes("hello@")
+      );
+      
+      if (workEmail) {
+        console.log(`✅ Found work email: ${workEmail}`);
+        return workEmail;
+      }
+    }
+    
+    console.log(`⚠️ No work email found via Exa - using payload email`);
+    return leadData.email;
+  } catch (error) {
+    console.error(`❌ Error finding work email:`, error);
+    return leadData.email; // Fallback to payload email
+  }
+}
+
+/**
+ * Step 2b: Find decision makers using Exa
  */
 async function findDecisionMakers(companyName: string, runId: string): Promise<DecisionMaker[]> {
   "use step";
@@ -367,6 +424,7 @@ async function logToAirtable(
 async function generatePersonalizedEmail(
   leadData: LeadData,
   companyData: CompanyResearch,
+  decisionMakers: DecisionMaker[],
   runId: string
 ): Promise<{ subject: string; body: string }> {
   "use step";
@@ -374,40 +432,53 @@ async function generatePersonalizedEmail(
   console.log(`✉️ Step 5: Generating personalized email...`);
 
   const firstName = leadData.name.split(" ")[0];
-  const subject = `Quick question about ${leadData.company}`;
+  const subject = `Research Report: ${leadData.company}`;
 
-  // Build email body with natural fallbacks
-  let intro = `Hi ${firstName},\n\nI came across ${leadData.company}`;
+  // Build comprehensive research email
+  let intro = `Hi ${firstName},\n\nI put together a quick research report on ${leadData.company}. Thought you might find these insights interesting!`;
+
+  // Company overview section
+  let companyOverview = "";
+  const overviewParts = [];
   
-  if (companyData.recentNews?.length) {
-    intro += ` and was impressed by your recent momentum`;
-  } else {
-    intro += ` and wanted to reach out`;
+  if (companyData.industry) {
+    overviewParts.push(`Industry: ${companyData.industry}`);
   }
-  intro += `.`;
-
-  // Add tech stack mention if available
-  let techMention = "";
-  if (companyData.techStack && companyData.techStack.length >= 2) {
-    techMention = `\n\nI noticed you're working with ${companyData.techStack.slice(0, 2).join(" and ")}—that's a great stack.`;
-  } else if (companyData.techStack && companyData.techStack.length === 1) {
-    techMention = `\n\nI see you're using ${companyData.techStack[0]} in your tech stack.`;
+  if (companyData.size) {
+    overviewParts.push(`Team Size: ${companyData.size}`);
   }
-
-  // Add funding mention if available
-  let fundingMention = "";
   if (companyData.funding) {
-    fundingMention = ` Congrats on your recent ${companyData.funding} funding!`;
+    overviewParts.push(`Funding: ${companyData.funding}`);
+  }
+  if (companyData.techStack && companyData.techStack.length > 0) {
+    overviewParts.push(`Tech Stack: ${companyData.techStack.join(", ")}`);
+  }
+  
+  if (overviewParts.length > 0) {
+    companyOverview = "\n\n## Company Profile\n" + overviewParts.map(p => `• ${p}`).join("\n");
   }
 
-  const body = `${intro}${techMention}
+  // Recent news section
+  let newsSection = "";
+  if (companyData.recentNews && companyData.recentNews.length > 0) {
+    newsSection = "\n\n## Recent Activity\n";
+    newsSection += companyData.recentNews.slice(0, 2).map(news => `• ${news}`).join("\n");
+  }
 
-${fundingMention ? fundingMention + "\n\n" : ""}I'd love to learn more about what you're building and explore if there's a way we could work together.
+  // Decision makers section
+  let decisionMakersSection = "";
+  if (decisionMakers && decisionMakers.length > 0) {
+    decisionMakersSection = "\n\n## Key Team Members\n";
+    decisionMakersSection += decisionMakers.slice(0, 3).map(dm => `• ${dm.name}${dm.title ? ` - ${dm.title}` : ""}`).join("\n");
+  }
 
-Would you be open to a quick 15-minute call next week?
+  // Closing - research-focused, not sales-y
+  const closing = `\n\n---\n\nThis research was compiled using AI-powered tools. Hope you find it useful!\n\nIf you'd like to chat about what you're building or have any questions about this report, feel free to reach out.
 
-Best regards,
-Sales Team`;
+Best,
+Pica Research Team`;
+
+  const body = `${intro}${companyOverview}${newsSection}${decisionMakersSection}${closing}`;
 
   console.log(`✅ Email generated`);
   
