@@ -390,6 +390,7 @@ export default function WorkflowPage({
       {/* Canvas with lighter background */}
       <div className="flex-1 bg-neutral-50 dark:bg-neutral-900">
         <Canvas
+          key={runId}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
