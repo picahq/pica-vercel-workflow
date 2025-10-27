@@ -112,8 +112,12 @@ export async function enrichLeadWorkflow(leadData: LeadData) {
  */
 async function reportStepResult(runId: string, stepId: string, stepName: string, status: string, result: any) {
   try {
-    const port = process.env.PORT || 3000; // Default to 3000!
-    const url = `http://localhost:${port}/api/step-update`;
+    // Use VERCEL_URL in production, localhost in dev
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : `http://localhost:${process.env.PORT || 3000}`;
+    
+    const url = `${baseUrl}/api/step-update`;
     console.log(`📡 Reporting ${stepName} to: ${url}`);
     
     const response = await fetch(url, {
