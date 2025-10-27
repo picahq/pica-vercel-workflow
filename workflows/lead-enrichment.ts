@@ -300,42 +300,9 @@ async function createAttioContact(
   console.log(`📝 Step 3: Creating contact in Attio CRM...`);
 
   try {
-    // STEP 1: Search for existing contacts with this email
-    console.log(`🔍 Searching for existing contacts with email: ${leadData.email}`);
-    const searchResult = await attioSearchPeople(leadData.email);
-    const existingContacts = searchResult.data || [];
-    
-    console.log(`📊 Found ${existingContacts.length} existing contact(s) with this email`);
-    
-    // STEP 2: Check if ANY of them have the same name AND company
     const [firstName, ...lastNameParts] = leadData.name.split(" ");
-    const lastName = lastNameParts.join(" ") || "Unknown";
-    const fullName = `${firstName} ${lastName}`.toLowerCase();
-    const company = leadData.company.toLowerCase();
+    const lastName = lastNameParts.join(" ") || "";
     
-    const exactMatch = existingContacts.find((contact: any) => {
-      const contactName = contact.values?.name?.[0]?.full_name?.toLowerCase() || "";
-      const contactCompany = contact.values?.primary_location?.[0]?.company_name?.toLowerCase() || "";
-      
-      const nameMatches = contactName === fullName;
-      const companyMatches = contactCompany === company;
-      
-      return nameMatches && companyMatches;
-    });
-    
-    if (exactMatch) {
-      console.log(`⚠️ Exact match found! Same email + name + company already exists`);
-      const skipData = { 
-        skipped: true, 
-        reason: `Duplicate: ${leadData.name} (${leadData.email}) at ${leadData.company} already exists`,
-        recordId: exactMatch.id?.record_id
-      };
-      await reportStepResult(runId, "attio", "Attio CRM", "completed", skipData);
-      return { data: skipData };
-    }
-    
-    // STEP 3: No exact match found - create new contact
-    console.log(`✅ No exact match - creating new contact`);
     // Build description with only available data
     const descParts = [`Lead from ${leadData.company}`];
     if (companyData.funding) descParts.push(`Funding: ${companyData.funding}`);
@@ -357,22 +324,7 @@ async function createAttioContact(
     return result;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    // FALLBACK: If creation fails with uniqueness_conflict, the search might have missed it
-    // This means a contact with this email exists (Attio enforces email uniqueness)
-    // Treat as duplicate and skip
-    if (errorMessage.includes("uniqueness_conflict")) {
-      console.log(`⚠️ Uniqueness conflict during creation - email already exists in Attio`);
-      const skipData = { 
-        skipped: true, 
-        reason: `Contact with email ${leadData.email} already exists in Attio (enforced by Attio)`,
-        note: "Email uniqueness enforced by Attio - same email cannot have multiple records"
-      };
-      await reportStepResult(runId, "attio", "Attio CRM", "completed", skipData);
-      return { data: skipData };
-    }
-    
-    console.error(`❌ Error in Attio step:`, error);
+    console.error(`❌ Error creating Attio contact:`, error);
     await reportStepResult(runId, "attio", "Attio CRM", "failed", { error: errorMessage });
     throw error;
   }
